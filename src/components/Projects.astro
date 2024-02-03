@@ -3,6 +3,8 @@ import GitHub from "./icons/GitHub.astro"
 import NextJS from "./icons/NextJS.astro"
 import Tailwind from "./icons/Tailwind.astro"
 import LinkButton from "./LinkButton.astro"
+import CSharp from "./icons/CSharp.astro"
+import OpenAi from "./icons/OpenAi.astro"
 
 const TAGS = {
   NEXT: {
@@ -15,6 +17,17 @@ const TAGS = {
     class: "bg-[#003159] text-white",
     icon: Tailwind,
   },
+  Chsarp: {
+    name: "ASP.Net Core",
+    class: "bg-[#fef] text-gray-900 font-bold",
+    icon: CSharp,
+  },
+  OpenAi: {
+    name: "gpt 3.5",
+    class: "bg-[#119ca4] text-gray-100 font-medium",
+    icon: OpenAi,
+  },
+
 }
 const PROJECTS = [
   {
@@ -32,7 +45,7 @@ const PROJECTS = [
       "ChatBot Asistente con inteligencía artificial para la Escuela Superior Especializada - ESFE/AGAPE",
     link: "https://juliogpt.vercel.app",
     image: "/projects/julio.png",
-    tags: [TAGS.NEXT, TAGS.TAILWIND],
+    tags: [ TAGS.Chsarp, TAGS.NEXT, TAGS.OpenAi],
   },
 ]
 ---
