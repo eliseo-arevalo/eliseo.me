@@ -2,15 +2,24 @@
 import ExperienceItem from "./ExperienceItem.astro"
 const EXPERIENCIE = [
   {
-    date: "01/24 - Actualmente...",
-    title: "Desarrollador Mid - Serfinsa",
+    employer: "Serfinsa",
+    date: "ene. 2024 - actualidad",
+    title: "Desarrollador Analista Mid",
     description:
       "Desarrollo de plataforma, diseño y arquitecutura de proyectos, migración de proyectos con ASP.NET core y SQLSEVER",
     link: "https://www.redserfinsa.com/",
+  },
+  {
+    date: "sept. 2022 - nov. 2023",
+    employer: "Axios Click",
+    title: "Full Stack Developer",
+    description:
+      "Desarrollo de nuevos productos, diseño e implementación de nuevas funcionalidades, mantenimiento de aplicaciones existentes",
+    link: "https://axios.click/",
   }
 ]
----
 
+---
 <ol class="relative border-s border-gray-200 ml-3">
   {
     EXPERIENCIE.map((experiencie) => (
