@@ -32,7 +32,20 @@
       href="/#proyectos"
       >Proyectos
     </a>
-    
+    <button
+      id="theme-toggle"
+      class="ml-4 p-2 rounded-full hover:bg-white/20 transition"
+      title="Cambiar tema"
+      type="button"
+    >
+      <svg id="theme-toggle-light-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="5" stroke="currentColor" />
+        <path d="M12 1v2m0 18v2m11-11h-2M3 12H1m16.95 6.95-1.414-1.414M6.464 6.464 5.05 5.05m12.02 0-1.414 1.414M6.464 17.536l-1.414 1.414" />
+      </svg>
+      <svg id="theme-toggle-dark-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" />
+      </svg>
+    </button>
   </nav>
 </header>
 
@@ -51,4 +64,44 @@
       a.classList.add('bg-white/15')
     })
   })
+</script>
+
+<script>
+  // Theme toggle logic
+  const themeToggleBtn = document.getElementById('theme-toggle');
+  const lightIcon = document.getElementById('theme-toggle-light-icon');
+  const darkIcon = document.getElementById('theme-toggle-dark-icon');
+
+  // Inicializa el icono correcto
+  function updateThemeIcon() {
+    if (!lightIcon || !darkIcon) return; // Null check
+
+    if (
+      localStorage.getItem('theme') === 'dark' ||
+      (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    ) {
+      document.documentElement.classList.add('dark');
+      darkIcon.classList.remove('hidden');
+      lightIcon.classList.add('hidden');
+    } else {
+      document.documentElement.classList.remove('dark');
+      lightIcon.classList.remove('hidden');
+      darkIcon.classList.add('hidden');
+    }
+  }
+
+  updateThemeIcon();
+
+  if (themeToggleBtn) { // Null check
+    themeToggleBtn.addEventListener('click', function () {
+      if (document.documentElement.classList.contains('dark')) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('theme', 'dark');
+      }
+      updateThemeIcon();
+    });
+  }
 </script>
