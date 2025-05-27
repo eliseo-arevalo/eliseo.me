@@ -1,39 +1,52 @@
 ---
 import ExperienceItem from "./ExperienceItem.astro"
-const EXPERIENCIE = [
+import CompanyTimeline from "./CompanyTimeline.astro"
+const EXPERIENCE = [
   {
-    employer: "Serfinsa",
-    date: "may. 2025 - actualidad",
-    title: "Desarrollador Sr de Automatización",
-    description:
-      "Gestión de equipos de desarrollo y creación y administración de flujos de Automatización",
-    link: "https://www.redserfinsa.com/",
+    company: "Serfinsa",
+    logo: "/serfinsa-logo.png", // Assuming you have company logos
+    duration: "may. 2025 - actualidad", // Overall company duration
+    roles: [
+      {
+        title: "Desarrollador Sr de Automatización",
+        date: "may. 2025 - actualidad",
+        description:
+          "Liderazgo y gestión de equipos enfocados en la creación y administración de flujos de automatización para optimizar procesos.",
+        link: "https://www.redserfinsa.com/",
+        isPromotion: true,
+      },
+      {
+        title: "Desarrollador Analista Mid",
+        date: "ene. 2024 - may. 2025",
+        description:
+          "Participación en el desarrollo de plataformas, diseño y arquitectura de proyectos, incluyendo la migración de sistemas a ASP.NET Core con SQL Server.",
+        link: "https://www.redserfinsa.com/",
+      },
+    ],
   },
   {
-    employer: "Serfinsa",
-    date: "ene. 2024 - may. 2025",
-    title: "Desarrollador Analista Mid",
-    description:
-      "Desarrollo de plataforma, diseño y arquitecutura de proyectos, migración de proyectos con ASP.NET core y SQLSEVER.",
-    link: "https://www.redserfinsa.com/",
+    company: "Axios Click",
+    logo: "/axios-logo.png", // Assuming you have company logos
+    duration: "sept. 2022 - nov. 2023",
+    roles: [
+      {
+        title: "Full Stack Developer",
+        date: "sept. 2022 - nov. 2023",
+        description:
+          "Desarrollo de nuevos productos, diseño e implementación de funcionalidades clave y mantenimiento de aplicaciones existentes en un entorno Full Stack.",
+        link: "https://axios.click/",
+      },
+    ],
   },
-  {
-    date: "sept. 2022 - nov. 2023",
-    employer: "Axios Click",
-    title: "Full Stack Developer",
-    description:
-      "Desarrollo de nuevos productos, diseño e implementación de nuevas funcionalidades, mantenimiento de aplicaciones existentes.",
-    link: "https://axios.click/",
-  }
-]
+];
 
 ---
-<ol class="relative border-s border-gray-200 ml-3">
+<div class="relative ml-3">
   {
-    EXPERIENCIE.map((experiencie) => (
-      <li class="mb-10 ms-4">
-        <ExperienceItem {...experiencie} />
-      </li>
+    EXPERIENCE.map((company) => (
+      <div class="mb-10">
+        <CompanyTimeline {...company} />
+      </div>
     ))
   }
-</ol>
+</div>
