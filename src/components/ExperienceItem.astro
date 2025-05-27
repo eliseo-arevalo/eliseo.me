@@ -1,17 +1,17 @@
 ---
-import LinkButton from "./LinkButton.astro"
+// import LinkButton from "./LinkButton.astro"
 // import ArrowUp from "./icons/ArrowUp.astro"
 
 interface Props {
 	employer: string
 	title: string
 	description: string
-	link?: string
+	// link?: string
 	date: string
   isPromotion?: boolean
 }
 
-const { title, description, link, date, employer, isPromotion } = Astro.props
+const { title, description, /* link, */ date, employer, isPromotion } = Astro.props
 ---
 
 {/* <div
@@ -23,9 +23,9 @@ const { title, description, link, date, employer, isPromotion } = Astro.props
 	>{date}</time
 >
 <h3 class={`text-lg font-normal text-yellow-800 dark:text-yellow-200 mt-2 ${isPromotion ? 'font-bold text-xl' : ''}`}>
-  <b class="font-bold">
+  {/* <b class="font-bold">
     {employer} -
-  </b>
+  </b> */}
   {title}
   {/* {isPromotion && <ArrowUp class="inline-block w-5 h-5 ml-2 text-green-500" />} */}
 </h3>
@@ -33,6 +33,7 @@ const { title, description, link, date, employer, isPromotion } = Astro.props
 	{description}
 </p>
 {
+	/* Bloque del LinkButton eliminado de aquí
 	link && (
 		<LinkButton href={link}>
 			Saber más...{" "}
@@ -52,49 +53,5 @@ const { title, description, link, date, employer, isPromotion } = Astro.props
 			</svg>
 		</LinkButton>
 	)
+  */
 }
-
-<style define:props={{ isPromotion }}>
-  :host li {
-    list-style: none;
-    position: relative;
-  }
-
-  :host li::before {
-    content: '';
-    position: absolute;
-    top: 6px; /* Adjust vertically */
-    left: -11px; /* Adjusted for regular dot */
-    transform: translateX(-50%);
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    border: 1px solid var(--gray-900);
-    background-color: var(--gray-700);
-    z-index: 5;
-  }
-
-  :host li.is-promotion::before {
-    left: -9px; /* Adjusted for promotion dot */
-    width: 14px;
-    height: 14px;
-    background-color: var(--yellow-500);
-  }
-
-  /* Use Astro props directly for conditional classes */
-  :host li {
-    @apply mb-10 ms-4;
-  }
-</style>
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('li').forEach(li => {
-      // This script assumes you add a data attribute or class to the li
-      // in CompanyTimeline.astro to indicate promotion.
-      // For example, using data-is-promotion="true"
-      if (li.dataset.isPromotion === 'true') {
-        li.classList.add('is-promotion');
-      }
-    });
-  });
-</script>
