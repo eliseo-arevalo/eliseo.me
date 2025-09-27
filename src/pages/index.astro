@@ -25,13 +25,21 @@ import SocialPill from "@/components/SocialPill.astro"
 			id="top"
 			class="py-10 pb-16 flex flex-col items-center"
 		>
-			<img
-				class="h-[16rem] bg-cover bg-[center_center] bg-no-repeat border-[3px] rounded-full relative"
-				src="/eliseo.png"
-				alt=""
-			/>
+			<div class="relative mx-auto max-w-4xl overflow-hidden rounded-2xl shadow-sm">
+				<div class="px-6 py-8">
+					<div class="flex items-center gap-3">
+						<img
+							class="h-12 w-12 rounded-full ring-2 ring-white dark:ring-black border border-white/20 dark:border-white/10 object-cover"
+							src="/eliseo.png"
+							alt="Foto de Eliseo Arévalo"
+						/>
+						<span class="inline-flex items-center gap-2 rounded-full border border-sky-200 dark:border-sky-900 bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300 px-3 py-1 text-xs">
+							<span class="inline-block h-2 w-2 rounded-full bg-sky-500"></span>
+							Disponible para trabajar
+						</span>
+					</div>
 			<h1
-				class="text-gray-900 flex-col dark:text-white text-3xl md:text-4xl lg:text-5xl font-bold flex flex-row gap-x-4 pb-6 mt-3"
+				class="text-gray-900 dark:text-white text-3xl md:text-4xl lg:text-5xl font-bold flex flex-row gap-x-4 pb-6 mt-3"
 			>
 				Eliseo Arévalo <a
 					href="https://www.linkedin.com/company/serfinsa/mycompany/"
@@ -39,11 +47,11 @@ import SocialPill from "@/components/SocialPill.astro"
 					rel="noopener"
 					class="flex justify-center items-center hover:scale-105 transition"
 				>
-					<Badge>Senior developer</Badge>
+					<Badge>develiseo</Badge>
 				</a>
 			</h1>
 			<h2
-				class="text-xl text-center lg:text-2xl text-balance max-w-[700px] text-black dark:text-white"
+				class="text-xl lg:text-2xl text-balance max-w-[700px] text-black dark:text-white"
 			>
 				<span>El código no es solo funcionalidad;</span><span
 					class="text-yellow-800 dark:text-yellow-200"
@@ -72,6 +80,8 @@ import SocialPill from "@/components/SocialPill.astro"
 					Curriculum
 				</SocialPill> -->
 			</nav>
+				</div>
+			</div>
 		</SectionContainer>
 
 		<SectionContainer id="experiencia">

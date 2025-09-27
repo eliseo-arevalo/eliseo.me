@@ -115,7 +115,18 @@ for (const item of visible) {
 	if (!groupsMap.has(item.group)) groupsMap.set(item.group, []);
 	groupsMap.get(item.group).push(item);
 }
-const groups = Array.from(groupsMap.entries()).sort((a,b) => a[0].localeCompare(b[0]));
+type Item = {
+  type: 'mdx' | 'excalidraw';
+  group: string;
+  slug: string;
+  title: string;
+  description: string;
+  url: string;
+  date: number;
+  preview?: string;
+};
+
+const groups = Array.from(groupsMap.entries() as IterableIterator<[string, Item[]]>).sort((a,b) => a[0].localeCompare(b[0]));
 const allGroupNames = groups.map(([g]) => g);
 const selectedGroup = allGroupNames.includes(groupQuery) ? groupQuery : 'all';
 ---
@@ -148,17 +159,25 @@ const selectedGroup = allGroupNames.includes(groupQuery) ? groupQuery : 'all';
 							</button>
 						)}
 					</div>
-					<ul class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+					<ul class="mt-4 space-y-1">
 						{items.map(({ slug, title, url, type, description, preview }, idx) => (
-							<li data-type={type} data-idx={idx} class={`rounded-lg border border-gray-200 dark:border-gray-800 p-0 hover:border-sky-400 transition overflow-hidden ${idx>=3?'hidden':''}`}>
-								<a href={url} class="block">
-									{type === 'excalidraw' && (
-										<ExcalPreview client:only="react" data={preview} height={112} />
+						<li data-type={type} data-idx={idx} class={`${idx>=3?'hidden':''}`}>
+								<a href={url} class="flex items-center gap-4 rounded-lg px-3 py-3 hover:bg-black/5 dark:hover:bg-white/5 transition">
+									{/* Preview compacta para excalidraw */}
+									{type === 'excalidraw' && preview ? (
+										<div class="hidden sm:block w-32 shrink-0 rounded-md overflow-hidden bg-gray-50 dark:bg-white/5">
+											<ExcalPreview client:only="react" data={preview} height={72} />
+										</div>
+									) : (
+										<div class="hidden sm:flex w-12 h-12 shrink-0 items-center justify-center rounded-md bg-gray-100 dark:bg-white/5 text-xs uppercase text-gray-600 dark:text-gray-300">
+											{type}
+										</div>
 									)}
-									<div class="p-4">
-										<h3 class="text-base text-sky-600 dark:text-sky-400 hover:underline capitalize">
+
+									<div class="min-w-0">
+										<h3 class="text-base text-sky-600 dark:text-sky-400 hover:underline capitalize truncate">
 											{title}
-											<span class="ml-2 text-[10px] rounded-full px-2 py-0.5 border border-gray-300 dark:border-gray-700 opacity-80">{type}</span>
+											<span class="ml-2 align-middle text-[10px] rounded-full px-2 py-0.5 border border-gray-300 dark:border-gray-700 opacity-80">{type}</span>
 										</h3>
 										{description && (<p class="text-sm text-gray-700 dark:text-gray-300 mt-1 line-clamp-2">{description}</p>)}
 									</div>
