@@ -21,18 +21,99 @@ const { description, title } = Astro.props
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
+    <script>
+      // Anti-flash de tema: aplicar clase 'dark' lo antes posible
+      (function(){
+        try{
+          const saved = localStorage.getItem('theme');
+          const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if(saved === 'dark' || (!saved && prefersDark)){
+            document.documentElement.classList.add('dark');
+          }
+        }catch(_){}
+      })();
+    </script>
+    <style>
+      /* View Transitions para el contenedor de página */
+      .vt-container { view-transition-name: page; }
+      @keyframes vt-fade-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes vt-fade-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-4px); } }
+      ::view-transition-old(page) { animation: vt-fade-out 180ms ease forwards; }
+      ::view-transition-new(page) { animation: vt-fade-in 180ms ease forwards; }
+    </style>
   </head>
 
   <body class="relative text-black dark:text-white">
     <div
-      class="absolute top-0 bottom-0 z-[-2] min-h-screen w-full bg-neutral-100 dark:bg-neutral-950
-      bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(217,216,255,0.5),rgba(255,255,255,0.9))]
-      dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.3),rgba(255,255,255,0))]"
+      class="absolute top-0 bottom-0 z-[-2] min-h-screen w-full bg-decor"
     >
     </div>
     <Header />
-    <slot />
+    <main id="app" class="vt-container">
+      <slot />
+    </main>
     <Footer />
+
+    <script>
+      // Navegación con View Transitions sin reemplazar <body>
+      (function(){
+        const supportsVT = 'startViewTransition' in document;
+        const appSelector = '#app';
+
+        function shouldHandleLink(e: MouseEvent){
+          if ((e as any).defaultPrevented) return false;
+          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return false;
+          const target = e.target as Element | null;
+          const a = target?.closest?.('a');
+          if (!a) return false;
+          const href = a.getAttribute('href') || '';
+          if (href.startsWith('#') || a.hasAttribute('download')) return false;
+          const url = new URL((a as HTMLAnchorElement).href, location.href);
+          if (url.origin !== location.origin) return false;
+          return true;
+        }
+
+        async function load(url: string){
+          const res = await fetch(url, { headers: { 'X-Requested-With': 'view-transition' } });
+          const html = await res.text();
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const next = doc.querySelector(appSelector);
+          if (!next) throw new Error('Contenedor no encontrado');
+          document.title = doc.title;
+          const current = document.querySelector(appSelector);
+          if (!current) return;
+          current.replaceChildren(...Array.from(next.childNodes));
+        }
+
+        addEventListener('click', (e: MouseEvent) => {
+          if (!shouldHandleLink(e)) return;
+          const a = (e.target as Element | null)?.closest?.('a') as HTMLAnchorElement | null;
+          if (!a) return;
+          const url = new URL(a.href, location.href);
+          e.preventDefault();
+          if (supportsVT){
+            (document as any).startViewTransition(() => load(url.toString())).finished.then(() => {
+              history.pushState(null, '', url.toString());
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }).catch(() => location.href = url.toString());
+          } else {
+            load(url.toString()).then(() => {
+              history.pushState(null, '', url.toString());
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }).catch(() => location.href = url.toString());
+          }
+        });
+
+        addEventListener('popstate', () => {
+          const url = location.href;
+          if (supportsVT){
+            (document as any).startViewTransition(() => load(url));
+          } else {
+            load(url);
+          }
+        });
+      })();
+    </script>
   </body>
 </html>
 
@@ -52,17 +133,29 @@ const { description, title } = Astro.props
     flex-direction: column;
     min-height: 100vh;
     overscroll-behavior: none;
+    transition: background-color 200ms ease, color 200ms ease;
+    background-color: #f5f5f5;
   }
+
+  /* Fondo decorativo por defecto (claro) */
+  .bg-decor {
+    background: radial-gradient(ellipse 80% 80% at 50% -20%, rgba(217,216,255,0.5), rgba(255,255,255,0.9));
+  }
+
+  /* Preferencia del SO: oscuro para primera pintura sin JS */
+  @media (prefers-color-scheme: dark) {
+    body { background-color: #0a0a0a; color: rgba(255,255,255,0.9); }
+    .bg-decor { background: radial-gradient(ellipse 80% 80% at 50% -20%, rgba(120,119,198,0.3), rgba(255,255,255,0)); }
+  }
+
+  /* Forzar según clase .dark (usuario) anula la preferencia del SO */
+  html.dark body { background-color: #0a0a0a; color: rgba(255,255,255,0.9); }
+  html.dark .bg-decor { background: radial-gradient(ellipse 80% 80% at 50% -20%, rgba(120,119,198,0.3), rgba(255,255,255,0)); }
+  html:not(.dark) body { background-color: #f5f5f5; color: rgba(17,17,17,0.9); }
+  html:not(.dark) .bg-decor { background: radial-gradient(ellipse 80% 80% at 50% -20%, rgba(217,216,255,0.5), rgba(255,255,255,0.9)); }
 
   @media (prefers-reduced-motion: reduce) {
-    html {
-      scroll-behavior: auto;
-    }
-  }
-
-  @media (prefers-color-scheme: dark) {
-    body {
-      color: rgba(255, 255, 255, 0.9);
-    }
+    html { scroll-behavior: auto; }
+    body { transition: none; }
   }
 </style>

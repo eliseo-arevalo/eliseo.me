@@ -1,0 +1,75 @@
+---
+import type { GetStaticPaths } from 'astro';
+import Layout from '../../layouts/Layout.astro';
+import ExcalidrawArticle from '../../components/ExcalidrawArticle.tsx';
+import { getCollection } from 'astro:content';
+
+interface ExcalidrawArticleData {
+  elements: readonly any[];
+  appState: any;
+  files?: Record<string, any>;
+}
+
+export const getStaticPaths: GetStaticPaths = async () => {
+  // MDX slugs
+  const posts = await getCollection('blog');
+  const mdxPaths = posts.map(post => ({ params: { slug: post.slug }, props: { kind: 'mdx' as const, post } }));
+
+  // Excalidraw slugs
+  const jsonModules = import.meta.glob('/src/content/articles/*.json', { eager: true }) as Record<string, { default: ExcalidrawArticleData } | ExcalidrawArticleData>;
+  const excalModules = import.meta.glob('/src/content/articles/*.excalidraw', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>;
+
+  const excalEntries: { slug: string; articleData: ExcalidrawArticleData }[] = [];
+  for (const [filePath, mod] of Object.entries(jsonModules)) {
+    const fileName = filePath.split('/').pop() || '';
+    const slug = fileName.replace(/\.(json)$/i, '');
+    const articleData = (mod as any).default ?? mod;
+    excalEntries.push({ slug, articleData });
+  }
+  for (const [filePath, raw] of Object.entries(excalModules)) {
+    const fileName = filePath.split('/').pop() || '';
+    const slug = fileName.replace(/\.(excalidraw)$/i, '');
+    const articleData = JSON.parse(raw) as ExcalidrawArticleData;
+    excalEntries.push({ slug, articleData });
+  }
+  const excalPaths = excalEntries.map(({ slug, articleData }) => ({ params: { slug }, props: { kind: 'excal' as const, articleData } }));
+
+  return [...mdxPaths, ...excalPaths];
+};
+
+const { kind } = Astro.props as { kind: 'mdx' | 'excal' };
+---
+
+{kind === 'mdx' ? (
+  (async () => {
+    const { post } = Astro.props as any;
+    const { Content } = await post.render();
+    const { title, description, pubDate } = post.data;
+    return (
+      <Layout title={title} description={description}>
+        <main class="container mx-auto px-4 py-8">
+          <article class="prose dark:prose-invert lg:prose-xl mx-auto">
+            <h1>{title}</h1>
+            <div class="text-gray-500 mb-8">
+              <time datetime={pubDate.toISOString()}>
+                {pubDate.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}
+              </time>
+            </div>
+            <Content />
+          </article>
+        </main>
+      </Layout>
+    );
+  })()
+) : (
+  (() => {
+    const { articleData } = Astro.props as { articleData: ExcalidrawArticleData };
+    return (
+      <Layout title="Nota" description="Nota en formato Excalidraw">
+        <article class="mt-16 max-w-5xl mx-auto px-4">
+          <ExcalidrawArticle client:only="react" articleData={articleData} />
+        </article>
+      </Layout>
+    );
+  })()
+)} 

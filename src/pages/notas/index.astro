@@ -1,0 +1,100 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import SectionContainer from '../../components/SectionContainer.astro';
+import { getCollection } from 'astro:content';
+
+const type = (Astro.url.searchParams.get('type') ?? 'all').toLowerCase();
+
+// MDX desde collection 'blog'
+const posts = await getCollection('blog');
+const mdxItems = posts.map(p => ({
+	type: 'mdx' as const,
+	slug: p.slug,
+	title: p.data.title,
+	description: p.data.description,
+	url: `/notas/${p.slug}`,
+	date: p.data.pubDate?.valueOf?.() ?? 0,
+}));
+
+// Excalidraw desde /src/content/articles
+const jsonModules = import.meta.glob('/src/content/articles/*.json', { eager: true });
+const excalModules = import.meta.glob('/src/content/articles/*.excalidraw', { eager: true, query: '?raw', import: 'default' });
+const excalItems = [...Object.keys(jsonModules), ...Object.keys(excalModules)].map((filePath) => {
+	const fileName = filePath.split('/').pop() || '';
+	const slug = fileName.replace(/\.(json|excalidraw)$/i, '');
+	const title = slug.replace(/-/g, ' ');
+	return {
+		type: 'excalidraw' as const,
+		slug,
+		title,
+		description: `Diagrama: ${title}`,
+		url: `/notas/${slug}`,
+		date: 0,
+	};
+});
+
+const itemsAll = [...mdxItems, ...excalItems].sort((a, b) => b.date - a.date);
+const selectedType = type;
+---
+
+<Layout title="Notas | Eliseo Arévalo" description="MDX y Excalidraw bajo una sola ruta.">
+	<SectionContainer class="mt-16">
+		<h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100">Notas</h1>
+		<p class="mt-4 text-lg text-gray-600 dark:text-gray-400">
+			Notas en MDX y diagramas Excalidraw.
+		</p>
+
+		<div class="mt-6 flex gap-3">
+			<button data-filter-btn data-type="all" class={`px-3 py-1 rounded-full border border-gray-300 dark:border-gray-700 ${selectedType==='all'?'bg-sky-500 text-white':'hover:bg-black/5 dark:hover:bg-white/10'}`}>Todos</button>
+			<button data-filter-btn data-type="mdx" class={`px-3 py-1 rounded-full border border-gray-300 dark:border-gray-700 ${selectedType==='mdx'?'bg-sky-500 text-white':'hover:bg-black/5 dark:hover:bg-white/10'}`}>MDX</button>
+			<button data-filter-btn data-type="excalidraw" class={`px-3 py-1 rounded-full border border-gray-300 dark:border-gray-700 ${selectedType==='excalidraw'?'bg-sky-500 text-white':'hover:bg-black/5 dark:hover:bg-white/10'}`}>Excalidraw</button>
+		</div>
+
+		<ul class="mt-8 space-y-6" data-list>
+			{itemsAll.map(({ slug, title, url, type, description }) => (
+				<li data-type={type} hidden={(selectedType!=='all' && selectedType!==type)}>
+					<a href={url} class="block">
+						<h3 class="text-xl text-sky-600 dark:text-sky-400 hover:underline capitalize">
+							{title} <span class="ml-2 text-xs rounded-full px-2 py-0.5 border border-gray-300 dark:border-gray-700 opacity-80">{type}</span>
+						</h3>
+						<p class="text-sm text-gray-700 dark:text-gray-300 mt-1">{description}</p>
+					</a>
+				</li>
+			))}
+		</ul>
+	</SectionContainer>
+
+	<script>
+		(function(){
+			const btns = Array.from(document.querySelectorAll('[data-filter-btn]')) as HTMLButtonElement[];
+			const list = document.querySelector('ul[data-list]') as HTMLUListElement | null;
+			if(!list) return;
+			const items = Array.from(list.querySelectorAll('li')) as HTMLLIElement[];
+
+			function apply(t: string){
+				items.forEach(li => {
+					const ty = li.getAttribute('data-type');
+					li.hidden = !(t === 'all' || ty === t);
+				});
+				btns.forEach(b => {
+					const ty = b.getAttribute('data-type');
+					if(ty === t){
+						b.classList.add('bg-sky-500','text-white');
+						b.classList.remove('hover:bg-black/5','dark:hover:bg-white/10');
+					}else{
+						b.classList.remove('bg-sky-500','text-white');
+						b.classList.add('hover:bg-black/5','dark:hover:bg-white/10');
+					}
+				});
+				const url = new URL(window.location.href);
+				url.searchParams.set('type', t);
+				history.replaceState(null,'',url.toString());
+			}
+
+			btns.forEach(b => b.addEventListener('click', () => {
+				const t = b.getAttribute('data-type') || 'all';
+				apply(t);
+			}));
+		})();
+	</script>
+</Layout> 
