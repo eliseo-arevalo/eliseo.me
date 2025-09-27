@@ -32,6 +32,16 @@
       href="/#proyectos"
       >Proyectos
     </a>
+    <a
+      class="hover:scale-110 hover:bg-white/20 rounded-full px-1 transition px-2"
+      href="/blog"
+      >Blog
+    </a>
+    <a
+      class="hover:scale-110 hover:bg-white/20 rounded-full px-1 transition px-2"
+      href="/articles"
+      >Artículos
+    </a>
     <button
       id="theme-toggle"
       class="ml-4 p-2 rounded-full hover:bg-white/20 transition"
@@ -50,7 +60,9 @@
 </header>
 
 <script>
-  const $navAElements: Element[] = [...document.querySelectorAll('header nav a')]
+  const $navAElements: Element[] = [...document.querySelectorAll('header nav a')].filter(a => 
+    a.getAttribute('href')?.startsWith('/#')
+  )
 
   window.addEventListener('scroll', () => {
     $navAElements.forEach(a => {

@@ -1,0 +1,33 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import SectionContainer from '../../components/SectionContainer.astro';
+
+const jsonModules = import.meta.glob('/src/content/articles/*.json', { eager: true });
+const excalModules = import.meta.glob('/src/content/articles/*.excalidraw', { eager: true, query: '?raw', import: 'default' });
+const filePaths = [...Object.keys(jsonModules), ...Object.keys(excalModules)];
+const articles = filePaths.map((filePath) => {
+	const fileName = filePath.split('/').pop() || '';
+	const slug = fileName.replace(/\.(json|excalidraw)$/i, '');
+	const title = slug.replace(/-/g, ' ');
+	return { slug, title };
+});
+---
+
+<Layout title="Artículos | Eliseo Arévalo" description="Una colección de mis pensamientos e ideas, visualizados con Excalidraw.">
+	<SectionContainer class="mt-16">
+		<h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100">Mis Artículos</h1>
+		<p class="mt-4 text-lg text-gray-600 dark:text-gray-400">
+			Aquí encontrarás una colección de mis pensamientos e ideas, visualizados con Excalidraw.
+		</p>
+
+		<ul class="mt-8 space-y-4">
+			{articles.map(({ slug, title }) => (
+				<li>
+					<a href={`/articles/${slug}`} class="text-xl text-sky-500 hover:underline capitalize">
+						{title}
+					</a>
+				</li>
+			))}
+		</ul>
+	</SectionContainer>
+</Layout>
