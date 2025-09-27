@@ -1,6 +1,7 @@
 ---
 import type { GetStaticPaths } from 'astro';
 import Layout from '../../layouts/Layout.astro';
+import SectionContainer from '../../components/SectionContainer.astro';
 import ExcalidrawArticle from '../../components/ExcalidrawArticle.tsx';
 import { getCollection } from 'astro:content';
 
@@ -80,8 +81,8 @@ if (kind === 'mdx') {
 
 <Layout title={`Nota | ${title}`} description={description}>
   {kind === 'mdx' ? (
-    <main class="container mx-auto px-4 py-8">
-      <article class="prose dark:prose-invert lg:prose-xl mx-auto">
+    <SectionContainer class="mt-16">
+      <article class="prose dark:prose-invert lg:prose-lg">
         <h1>{title}</h1>
         {pubDate && (
           <div class="text-gray-500 mb-8">
@@ -92,10 +93,16 @@ if (kind === 'mdx') {
         )}
         <Content />
       </article>
-    </main>
+    </SectionContainer>
   ) : (
-    <article class="mt-16 max-w-5xl mx-auto px-4">
-      {articleData && <ExcalidrawArticle client:only="react" articleData={articleData} />}
-    </article>
+    <SectionContainer class="mt-16">
+      <article>
+        {articleData && (
+          <div style={`view-transition-name: note-${String((Astro as any).params?.slug || '').toLowerCase().replace(/[^a-z0-9_-]/g,'-')}`}>
+            <ExcalidrawArticle client:only="react" articleData={articleData} />
+          </div>
+        )}
+      </article>
+    </SectionContainer>
   )}
 </Layout>

@@ -43,6 +43,7 @@ const ExcalPreview: React.FC<Props> = ({ data, height = 112 }) => {
       ref={boxRef}
       style={{ height }}
       className="w-full overflow-hidden bg-gray-50 dark:bg-white/5 border-b border-gray-200 dark:border-gray-800"
+      data-excal
     />
   );
 };

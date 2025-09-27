@@ -40,6 +40,9 @@ const { description, title } = Astro.props
       @keyframes vt-fade-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-4px); } }
       ::view-transition-old(page) { animation: vt-fade-out 180ms ease forwards; }
       ::view-transition-new(page) { animation: vt-fade-in 180ms ease forwards; }
+      /* Evitar animación indeseada en Excalidraw al cambiar tema */
+      html:root { transition: color 0.2s ease, background-color 0.2s ease; }
+      [data-excal] * { transition: none !important; }
     </style>
   </head>
 
@@ -67,10 +70,24 @@ const { description, title } = Astro.props
           const a = target?.closest?.('a');
           if (!a) return false;
           const href = a.getAttribute('href') || '';
-          if (href.startsWith('#') || a.hasAttribute('download')) return false;
+          // No interceptar enlaces con hash (anclas), aunque usen "/#id"
+          if (href.includes('#') || a.hasAttribute('download')) return false;
           const url = new URL((a as HTMLAnchorElement).href, location.href);
+          // Permitir interceptar navegación entre páginas internas (excepto anclas y externos)
           if (url.origin !== location.origin) return false;
           return true;
+        }
+
+        function reviveScripts(root: Element){
+          const scripts = root.querySelectorAll('script');
+          scripts.forEach((oldScript) => {
+            const s = document.createElement('script');
+            for (const { name, value } of Array.from(oldScript.attributes)) {
+              s.setAttribute(name, value);
+            }
+            s.textContent = oldScript.textContent || '';
+            oldScript.replaceWith(s);
+          });
         }
 
         async function load(url: string){
@@ -83,6 +100,9 @@ const { description, title } = Astro.props
           const current = document.querySelector(appSelector);
           if (!current) return;
           current.replaceChildren(...Array.from(next.childNodes));
+          reviveScripts(current);
+          // Rehidratar islas de Astro tras el swap para que componentes client-only/visible se monten
+          try { window.dispatchEvent(new Event('astro:page-load')); } catch {}
         }
 
         addEventListener('click', (e: MouseEvent) => {

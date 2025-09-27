@@ -4,9 +4,6 @@ import SectionContainer from '../../components/SectionContainer.astro';
 import { getCollection } from 'astro:content';
 import ExcalPreview from '../../components/ExcalPreview.tsx';
 
-const type = (Astro.url.searchParams.get('type') ?? 'all').toLowerCase();
-const groupQuery = (Astro.url.searchParams.get('group') ?? 'all').toLowerCase();
-
 function parseName(base: string){
 	// admite: "grupo_tema", "grupo - tema", "grupo-tema", o solo "tema"
 	const m = base.split(/\s*-\s*|_/);
@@ -24,6 +21,8 @@ function titleFromElements(data: any, fallback: string){
 	}catch {}
 	return fallback;
 }
+
+// handler ligero para marcar el preview clicado con un nombre de transición compartido
 
 // MDX desde colección 'notas'
 const notes = await getCollection('notas');
@@ -106,10 +105,9 @@ const excalFromRaw = Object.entries(excalModules).map(([filePath, raw]) => {
 const excalItems = [...excalFromJson, ...excalFromRaw];
 
 const itemsAll = [...mdxItems, ...excalItems].sort((a, b) => b.date - a.date);
-const selectedType = type;
 
-// Agrupar por group y aplicar filtro inicial por tipo (SSR)
-const visible = itemsAll.filter(i => selectedType === 'all' || i.type === selectedType);
+// Agrupar por group (sin filtro de tipo)
+const visible = itemsAll;
 const groupsMap = new Map();
 for (const item of visible) {
 	if (!groupsMap.has(item.group)) groupsMap.set(item.group, []);
@@ -128,24 +126,16 @@ type Item = {
 
 const groups = Array.from(groupsMap.entries() as IterableIterator<[string, Item[]]>).sort((a,b) => a[0].localeCompare(b[0]));
 const allGroupNames = groups.map(([g]) => g);
-const selectedGroup = allGroupNames.includes(groupQuery) ? groupQuery : 'all';
 ---
 
 <Layout title="Notas | Eliseo Arévalo" description="MDX y Excalidraw bajo una sola ruta.">
-	<SectionContainer class="mt-16">
+    <SectionContainer class="mt-16" data-notes-root>
 		<h1 class="text-4xl font-bold text-gray-900 dark:text-gray-100">Notas</h1>
 		<p class="mt-4 text-lg text-gray-600 dark:text-gray-400">
 			Explora un poco mis notas e ideas 
 		</p>
 
-		<div class="mt-6 flex items-center gap-3 overflow-x-auto">
-			<div class="ml-auto flex items-center gap-2 text-xs opacity-80">
-				<span>Tipo:</span>
-				<button data-filter-btn data-type="all" class={`px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-700 ${selectedType==='all'?'bg-sky-500 text-white':'hover:bg-black/5 dark:hover:bg-white/10'}`}>Todos</button>
-				<button data-filter-btn data-type="mdx" class={`px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-700 ${selectedType==='mdx'?'bg-sky-500 text-white':'hover:bg-black/5 dark:hover:bg-white/10'}`}>MDX</button>
-				<button data-filter-btn data-type="excalidraw" class={`px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-700 ${selectedType==='excalidraw'?'bg-sky-500 text-white':'hover:bg-black/5 dark:hover:bg-white/10'}`}>Excalidraw</button>
-			</div>
-		</div>
+			
 
 		<div class="mt-8 space-y-10" data-groups>
 			{groups.map(([groupName, items]) => (
@@ -164,12 +154,12 @@ const selectedGroup = allGroupNames.includes(groupQuery) ? groupQuery : 'all';
 						<li data-type={type} data-idx={idx} class={`${idx>=3?'hidden':''}`}>
 								<a href={url} class="flex items-center gap-4 rounded-lg px-3 py-3 hover:bg-black/5 dark:hover:bg-white/5 transition">
 									{/* Preview compacta para excalidraw */}
-									{type === 'excalidraw' && preview ? (
-										<div class="hidden sm:block w-32 shrink-0 rounded-md overflow-hidden bg-gray-50 dark:bg-white/5">
-											<ExcalPreview client:only="react" data={preview} height={72} />
-										</div>
-									) : (
-										<div class="hidden sm:flex w-12 h-12 shrink-0 items-center justify-center rounded-md bg-gray-100 dark:bg-white/5 text-xs uppercase text-gray-600 dark:text-gray-300">
+                    {type === 'excalidraw' && preview ? (
+                                        <div class="w-20 sm:w-32 shrink-0 rounded-md overflow-hidden bg-gray-50 dark:bg-white/5" style={`view-transition-name: note-${String(slug).toLowerCase().replace(/[^a-z0-9_-]/g,'-')}`}>
+                                            <ExcalPreview client:only="react" data={preview} height={72} />
+                                        </div>
+                                    ) : (
+                                        <div class="flex w-12 h-12 shrink-0 items-center justify-center rounded-md bg-gray-100 dark:bg-white/5 text-xs uppercase text-gray-600 dark:text-gray-300">
 											{type}
 										</div>
 									)}
@@ -188,5 +178,5 @@ const selectedGroup = allGroupNames.includes(groupQuery) ? groupQuery : 'all';
 				</section>
 			))}
 		</div>
-	</SectionContainer>
+    </SectionContainer>
 </Layout> 

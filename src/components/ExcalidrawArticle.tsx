@@ -122,7 +122,7 @@ const ExcalidrawArticle: React.FC<Props> = ({ articleData }) => {
   }, [data]);
 
   return (
-    <div className="relative" style={{ width: '100%', minHeight: '60vh' }}>
+    <div className="relative" data-excal style={{ width: '100%', minHeight: '60vh' }}>
       <div ref={containerRef} className="relative z-0" style={{ width: '100%', height: 'auto' }} />
       {loading && (
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-black/40 backdrop-blur-sm">
