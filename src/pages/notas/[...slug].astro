@@ -1,0 +1,101 @@
+---
+import type { GetStaticPaths } from 'astro';
+import Layout from '../../layouts/Layout.astro';
+import ExcalidrawArticle from '../../components/ExcalidrawArticle.tsx';
+import { getCollection } from 'astro:content';
+
+interface ExcalidrawArticleData {
+  elements: readonly any[];
+  appState?: any;
+  files?: Record<string, any>;
+}
+
+export const getStaticPaths: GetStaticPaths = async () => {
+  // Helper local para evitar problemas de ámbito
+  const parseName = (fileName: string) => {
+    const base = fileName.replace(/\.(md|mdx|excalidraw|json)$/i,'');
+    const m = base.split(/\s*-\s*|_/);
+    const grupo = (m[0] || '').trim();
+    const tema = (m.slice(1).join('-') || '').trim();
+    return { grupo, tema };
+  };
+  const makeSlug = (grupo: string, tema: string) => [grupo, tema].filter(Boolean).join('/');
+
+  // MDX en colección notas
+  const posts = await getCollection('notas');
+  const mdxPaths = posts.map(post => {
+    const parts = post.slug.split('/');
+    const name = parts[parts.length - 1];
+    const { grupo, tema } = parseName(name);
+    const slug = makeSlug(grupo, tema);
+    return { params: { slug }, props: { kind: 'mdx' as const, post } };
+  });
+
+  // Excalidraw/JSON en /src/content/notas/**
+  const jsonModules = import.meta.glob('/src/content/notas/**/*.json', { eager: true }) as Record<string, { default: ExcalidrawArticleData } | ExcalidrawArticleData>;
+  const excalModules = import.meta.glob('/src/content/notas/**/*.excalidraw', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>;
+
+  function fileNameFromPath(path: string){
+    return path.split('/').pop() || path;
+  }
+
+  const excalPaths: { params: { slug: string }; props: { kind: 'excal'; articleData: ExcalidrawArticleData } }[] = [];
+
+  for (const [filePath, mod] of Object.entries(jsonModules)) {
+    const { grupo, tema } = parseName(fileNameFromPath(filePath));
+    const slug = makeSlug(grupo, tema);
+    const articleData = (mod as any).default ?? mod;
+    excalPaths.push({ params: { slug }, props: { kind: 'excal', articleData } });
+  }
+
+  for (const [filePath, raw] of Object.entries(excalModules)) {
+    const { grupo, tema } = parseName(fileNameFromPath(filePath));
+    const slug = makeSlug(grupo, tema);
+    const articleData = JSON.parse(raw) as ExcalidrawArticleData;
+    excalPaths.push({ params: { slug }, props: { kind: 'excal', articleData } });
+  }
+
+  return [...mdxPaths, ...excalPaths];
+};
+
+const { kind } = Astro.props as { kind: 'mdx' | 'excal' };
+
+let title: string = 'Nota';
+let description: string = 'Nota';
+let pubDate: Date | undefined;
+let Content: any;
+let articleData: ExcalidrawArticleData | undefined;
+
+if (kind === 'mdx') {
+  const { post } = Astro.props as any;
+  const rendered = await post.render();
+  Content = rendered.Content;
+  title = post.data.title || title;
+  description = post.data.description || description;
+  pubDate = post.data.pubDate;
+} else {
+  ({ articleData } = Astro.props as { articleData: ExcalidrawArticleData });
+}
+---
+
+<Layout title={`Nota | ${title}`} description={description}>
+  {kind === 'mdx' ? (
+    <main class="container mx-auto px-4 py-8">
+      <article class="prose dark:prose-invert lg:prose-xl mx-auto">
+        <h1>{title}</h1>
+        {pubDate && (
+          <div class="text-gray-500 mb-8">
+            <time datetime={pubDate.toISOString()}>
+              {pubDate.toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </time>
+          </div>
+        )}
+        <Content />
+      </article>
+    </main>
+  ) : (
+    <article class="mt-16 max-w-5xl mx-auto px-4">
+      {articleData && <ExcalidrawArticle client:only="react" articleData={articleData} />}
+    </article>
+  )}
+</Layout>
