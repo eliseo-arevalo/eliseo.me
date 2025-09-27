@@ -2,6 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import SectionContainer from '../../components/SectionContainer.astro';
 import { getCollection } from 'astro:content';
+import ExcalPreview from '../../components/ExcalPreview.tsx';
 
 const type = (Astro.url.searchParams.get('type') ?? 'all').toLowerCase();
 const groupQuery = (Astro.url.searchParams.get('group') ?? 'all').toLowerCase();
@@ -64,12 +65,14 @@ const excalFromJson = Object.entries(jsonModules).map(([filePath, mod]) => {
 	const desc = (data && typeof data.description === 'string' && data.description.trim().length)
 		? data.description
 		: `Diagrama: ${derived}`;
+	const preview = JSON.stringify({ elements: data?.elements || [], appState: data?.appState || {}, files: data?.files || null });
 	return {
 		type: 'excalidraw' as const,
 		group,
 		slug: segments.join('/') || base,
 		title: usedTitle,
 		description: desc,
+		preview,
 		url: `/notas/${segments.length ? segments.join('/') : base}`,
 		date: 0,
 	};
@@ -87,12 +90,14 @@ const excalFromRaw = Object.entries(excalModules).map(([filePath, raw]) => {
 	const desc = (data && typeof data.description === 'string' && data.description.trim().length)
 		? data.description
 		: `Diagrama: ${derived}`;
+	const preview = JSON.stringify({ elements: data?.elements || [], appState: data?.appState || {}, files: data?.files || null });
 	return {
 		type: 'excalidraw' as const,
 		group,
 		slug: segments.join('/') || base,
 		title: usedTitle,
 		description: desc,
+		preview,
 		url: `/notas/${segments.length ? segments.join('/') : base}`,
 		date: 0,
 	};
@@ -144,14 +149,19 @@ const selectedGroup = allGroupNames.includes(groupQuery) ? groupQuery : 'all';
 						)}
 					</div>
 					<ul class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-						{items.map(({ slug, title, url, type, description }, idx) => (
-							<li data-type={type} data-idx={idx} class={`rounded-lg border border-gray-200 dark:border-gray-800 p-4 hover:border-sky-400 transition ${idx>=3?'hidden':''}`}>
+						{items.map(({ slug, title, url, type, description, preview }, idx) => (
+							<li data-type={type} data-idx={idx} class={`rounded-lg border border-gray-200 dark:border-gray-800 p-0 hover:border-sky-400 transition overflow-hidden ${idx>=3?'hidden':''}`}>
 								<a href={url} class="block">
-									<h3 class="text-base text-sky-600 dark:text-sky-400 hover:underline capitalize">
-										{title}
-										<span class="ml-2 text-[10px] rounded-full px-2 py-0.5 border border-gray-300 dark:border-gray-700 opacity-80">{type}</span>
-									</h3>
-									{description && (<p class="text-sm text-gray-700 dark:text-gray-300 mt-1 line-clamp-2">{description}</p>)}
+									{type === 'excalidraw' && (
+										<ExcalPreview client:only="react" data={preview} height={112} />
+									)}
+									<div class="p-4">
+										<h3 class="text-base text-sky-600 dark:text-sky-400 hover:underline capitalize">
+											{title}
+											<span class="ml-2 text-[10px] rounded-full px-2 py-0.5 border border-gray-300 dark:border-gray-700 opacity-80">{type}</span>
+										</h3>
+										{description && (<p class="text-sm text-gray-700 dark:text-gray-300 mt-1 line-clamp-2">{description}</p>)}
+									</div>
 								</a>
 							</li>
 						))}
@@ -160,65 +170,4 @@ const selectedGroup = allGroupNames.includes(groupQuery) ? groupQuery : 'all';
 			))}
 		</div>
 	</SectionContainer>
-
-	<script>
-		(function(){
-			const typeBtns = Array.from(document.querySelectorAll('[data-filter-btn]')) as HTMLButtonElement[];
-			const groupsEl = document.querySelector('[data-groups]') as HTMLElement | null;
-			if(!groupsEl) return;
-
-			function setActiveType(type: string){
-				typeBtns.forEach(b => {
-					const t = (b.getAttribute('data-type')||'all').toLowerCase();
-					if(t===type){ b.classList.add('bg-sky-500','text-white'); b.classList.remove('hover:bg-black/5','dark:hover:bg-white/10'); }
-					else { b.classList.remove('bg-sky-500','text-white'); b.classList.add('hover:bg-black/5','dark:hover:bg-white/10'); }
-				});
-			}
-
-			function apply(type: string){
-				const sections = Array.from(groupsEl.querySelectorAll('section[data-group-section]')) as HTMLElement[];
-				sections.forEach(sec => {
-					let anyVisible = false;
-					const items = Array.from(sec.querySelectorAll('li[data-type]')) as HTMLLIElement[];
-					const expanded = sec.getAttribute('data-expanded')==='true';
-					items.forEach(li => {
-						const ty = (li.getAttribute('data-type')||'').toLowerCase();
-						const idx = Number(li.getAttribute('data-idx')||'0');
-						const withinLimit = expanded || idx < 3;
-						const showItem = (type==='all' || ty===type) && withinLimit;
-						li.hidden = !showItem;
-						if (showItem) anyVisible = true;
-					});
-					sec.hidden = !anyVisible;
-					const btn = sec.querySelector('[data-group-toggle]') as HTMLButtonElement | null;
-					if (btn){ btn.textContent = expanded ? 'Ver menos' : 'Ver todas'; }
-				});
-				setActiveType(type);
-				const url = new URL(window.location.href);
-				url.searchParams.set('type', type);
-				history.replaceState(null,'',url.toString());
-			}
-
-			const params = new URL(window.location.href).searchParams;
-			const initType = (params.get('type')||'all').toLowerCase();
-			apply(initType);
-
-			typeBtns.forEach(b => b.addEventListener('click', () => {
-				const t = (b.getAttribute('data-type')||'all').toLowerCase();
-				apply(t);
-			}));
-
-			// Toggle ver todas/menos
-			groupsEl.addEventListener('click', (e) => {
-				const btn = (e.target as Element).closest('[data-group-toggle]') as HTMLButtonElement | null;
-				if(!btn) return;
-				const sec = btn.closest('section[data-group-section]') as HTMLElement | null;
-				if(!sec) return;
-				const expanded = sec.getAttribute('data-expanded')==='true';
-				sec.setAttribute('data-expanded', expanded ? 'false' : 'true');
-				const t = (new URL(window.location.href).searchParams.get('type')||'all').toLowerCase();
-				apply(t);
-			});
-		})();
-	</script>
 </Layout> 
