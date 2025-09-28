@@ -5,11 +5,12 @@ import { getCollection } from 'astro:content';
 import ExcalPreview from '../../components/ExcalPreview.tsx';
 
 function parseName(base: string){
-	// admite: "grupo_tema", "grupo - tema", "grupo-tema", o solo "tema"
-	const m = base.split(/\s*-\s*|_/);
-	const grupo = (m[0] || '').trim();
-	const tema = (m.slice(1).join('-') || '').trim();
-	return { grupo, tema };
+    // admite: "grupo_tema", "grupo - tema", "grupo-tema", o solo "tema"
+    const name = base.replace(/\s+/g, '-');
+    const m = name.split(/\s*-\s*|_/);
+    const grupo = (m[0] || '').trim();
+    const tema = (m.slice(1).join('-') || '').trim();
+    return { grupo, tema };
 }
 
 function titleFromElements(data: any, fallback: string){
@@ -108,10 +109,21 @@ const itemsAll = [...mdxItems, ...excalItems].sort((a, b) => b.date - a.date);
 
 // Agrupar por group (sin filtro de tipo)
 const visible = itemsAll;
-const groupsMap = new Map();
+
+function canonicalGroup(s: string){
+    return String(s || '')
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/_/g, '-')
+        .replace(/-+/g, '-')
+        .trim();
+}
+
+const groupsMap = new Map<string, { display: string; items: any[] }>();
 for (const item of visible) {
-	if (!groupsMap.has(item.group)) groupsMap.set(item.group, []);
-	groupsMap.get(item.group).push(item);
+    const key = canonicalGroup(item.group);
+    if (!groupsMap.has(key)) groupsMap.set(key, { display: item.group, items: [] });
+    groupsMap.get(key)!.items.push(item);
 }
 type Item = {
   type: 'mdx' | 'excalidraw';
@@ -124,8 +136,8 @@ type Item = {
   preview?: string;
 };
 
-const groups = Array.from(groupsMap.entries() as IterableIterator<[string, Item[]]>).sort((a,b) => a[0].localeCompare(b[0]));
-const allGroupNames = groups.map(([g]) => g);
+const groups = Array.from(groupsMap.entries() as IterableIterator<[string, { display: string; items: Item[] }]>).sort((a,b) => a[0].localeCompare(b[0]));
+const allGroupNames = groups.map(([key, { display }]) => display);
 ---
 
 <Layout title="Notas | Eliseo Arévalo" description="MDX y Excalidraw bajo una sola ruta.">
@@ -138,19 +150,19 @@ const allGroupNames = groups.map(([g]) => g);
 			
 
 		<div class="mt-8 space-y-10" data-groups>
-			{groups.map(([groupName, items]) => (
-				<section data-group-section data-group={groupName}>
+			{groups.map(([groupKey, entry]) => (
+				<section data-group-section data-group={groupKey}>
 					<div class="flex items-end gap-3">
-						<h2 class="text-2xl font-semibold capitalize text-gray-900 dark:text-gray-100">{groupName.replace(/-/g,' ')}</h2>
-						<span class="text-xs text-gray-600 dark:text-gray-400">{items.length} notas</span>
-						{items.length > 3 && (
-							<button data-group-toggle class="ml-auto text-xs px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-700 hover:bg-black/5 dark:hover:bg-white/10">
-								Ver todas
-							</button>
-						)}
+						<h2 class="text-2xl font-semibold capitalize text-gray-900 dark:text-gray-100">{String(entry.display).replace(/-/g,' ')}</h2>
+						<span class="text-xs text-gray-600 dark:text-gray-400">{entry.items.length} notas</span>
+						{entry.items.length > 3 && (
+							<a href={`/notas/grupo/${encodeURIComponent(String(groupKey))}`} class="ml-auto text-xs px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-700 hover:bg-black/5 dark:hover:bg-white/10">
+                                Ver todas
+                            </a>
+                        )}
 					</div>
 					<ul class="mt-4 space-y-1">
-						{items.map(({ slug, title, url, type, description, preview }, idx) => (
+						{entry.items.map(({ slug, title, url, type, description, preview }, idx) => (
 						<li data-type={type} data-idx={idx} class={`${idx>=3?'hidden':''}`}>
 								<a href={url} class="flex items-center gap-4 rounded-lg px-3 py-3 hover:bg-black/5 dark:hover:bg-white/5 transition">
 									{/* Preview compacta para excalidraw */}
@@ -179,4 +191,24 @@ const allGroupNames = groups.map(([g]) => g);
 			))}
 		</div>
     </SectionContainer>
+
+		<script>
+			// Toggle "Ver todas" por grupo
+			document.addEventListener('click', (e) => {
+				const btn = (e.target as Element).closest('button[data-group-toggle]') as HTMLButtonElement | null;
+				if (!btn) return;
+				const section = btn.closest('section[data-group-section]');
+				if (!section) return;
+				const items = Array.from(section.querySelectorAll('li[data-idx]')) as HTMLElement[];
+				const isExpanded = btn.getAttribute('data-expanded') === 'true';
+				const next = !isExpanded;
+				btn.setAttribute('data-expanded', String(next));
+				btn.setAttribute('aria-expanded', String(next));
+				btn.textContent = next ? 'Ver menos' : 'Ver todas';
+				for (const li of items) {
+					const idx = Number(li.getAttribute('data-idx') || '0');
+					if (idx >= 3) li.classList.toggle('hidden', !next);
+				}
+			});
+		</script>
 </Layout> 

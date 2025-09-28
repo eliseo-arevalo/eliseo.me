@@ -1,0 +1,179 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import SectionContainer from '../../../components/SectionContainer.astro';
+import { getCollection } from 'astro:content';
+import type { GetStaticPaths } from 'astro';
+import ExcalPreview from '../../../components/ExcalPreview.tsx';
+
+const groupParam = String(Astro.params.group || '').toLowerCase();
+
+function parseName(base: string){
+  const name = base.replace(/\s+/g, '-');
+  const m = name.split(/\s*-\s*|_/);
+  const grupo = (m[0] || '').trim();
+  const tema = (m.slice(1).join('-') || '').trim();
+  return { grupo, tema };
+}
+
+function titleFromElements(data: any, fallback: string){
+  try{
+    const els = (data?.elements || []) as any[];
+    const firstText = els.find(e => typeof e?.text === 'string' && e.text.trim().length);
+    const t = String(firstText?.text || '').trim();
+    if (t && t.length <= 100) return t;
+  }catch {}
+  return fallback;
+}
+
+export const getStaticPaths: GetStaticPaths = async () => {
+  const groups = new Set<string>();
+
+  function parseNameLocal(base: string){
+    const m = base.split(/\s*-\s*|_/);
+    const grupo = (m[0] || '').trim();
+    const tema = (m.slice(1).join('-') || '').trim();
+    return { grupo, tema };
+  }
+
+  const notes = await getCollection('notas');
+  for (const p of notes) {
+    const parts = p.slug.split('/');
+    const name = parts[parts.length - 1];
+    const { grupo } = parseNameLocal(name);
+    groups.add((grupo || 'general').toLowerCase());
+  }
+
+  const jsonModules = import.meta.glob('/src/content/notas/**/*.json', { eager: true });
+  const excalModules = import.meta.glob('/src/content/notas/**/*.excalidraw', { eager: true, query: '?raw', import: 'default' });
+
+  function fileBase(path: string){
+    const file = path.split('/').pop() || path;
+    return file.replace(/\.(json|excalidraw)$/i,'');
+  }
+
+  for (const filePath of Object.keys(jsonModules)) {
+    const base = fileBase(filePath);
+    const { grupo } = parseNameLocal(base);
+    groups.add((grupo || 'general').toLowerCase());
+  }
+  for (const filePath of Object.keys(excalModules)) {
+    const base = fileBase(filePath);
+    const { grupo } = parseNameLocal(base);
+    groups.add((grupo || 'general').toLowerCase());
+  }
+
+  return Array.from(groups).map(g => ({ params: { group: g } }));
+};
+
+const notes = await getCollection('notas');
+const mdxItems = notes.map(p => {
+  const parts = p.slug.split('/');
+  const name = parts[parts.length - 1];
+  const { grupo, tema } = parseName(name);
+  const segments = [grupo, tema].filter(Boolean);
+  const url = `/notas/${segments.length ? segments.join('/') : name}`;
+  return {
+    type: 'mdx' as const,
+    group: (grupo || 'general'),
+    slug: segments.join('/') || name,
+    title: p.data.title || (tema || name),
+    description: p.data.description || '',
+    url,
+    date: p.data.pubDate?.valueOf?.() ?? 0,
+  };
+});
+
+const jsonModules = import.meta.glob('/src/content/notas/**/*.json', { eager: true });
+const excalModules = import.meta.glob('/src/content/notas/**/*.excalidraw', { eager: true, query: '?raw', import: 'default' });
+
+function fileBase(path: string){
+  const file = path.split('/').pop() || path;
+  return file.replace(/\.(json|excalidraw)$/i,'');
+}
+
+const excalFromJson = Object.entries(jsonModules).map(([filePath, mod]) => {
+  const base = fileBase(filePath);
+  const { grupo, tema } = parseName(base);
+  const group = (grupo || 'general');
+  const segments = [grupo, tema].filter(Boolean);
+  const derived = (tema || base).replace(/-/g, ' ');
+  const data: any = (mod as any)?.default ?? (mod as any);
+  const usedTitle = titleFromElements(data, derived);
+  const desc = (data && typeof data.description === 'string' && data.description.trim().length)
+    ? data.description
+    : `Diagrama: ${derived}`;
+  const preview = JSON.stringify({ elements: data?.elements || [], appState: data?.appState || {}, files: data?.files || null });
+  return {
+    type: 'excalidraw' as const,
+    group,
+    slug: segments.join('/') || base,
+    title: usedTitle,
+    description: desc,
+    preview,
+    url: `/notas/${segments.length ? segments.join('/') : base}`,
+    date: 0,
+  };
+});
+
+const excalFromRaw = Object.entries(excalModules).map(([filePath, raw]) => {
+  const base = fileBase(filePath);
+  const { grupo, tema } = parseName(base);
+  const group = (grupo || 'general');
+  const segments = [grupo, tema].filter(Boolean);
+  const derived = (tema || base).replace(/-/g, ' ');
+  let data: any = {};
+  try { data = JSON.parse(raw as string); } catch {}
+  const usedTitle = titleFromElements(data, derived);
+  const desc = (data && typeof data.description === 'string' && data.description.trim().length)
+    ? data.description
+    : `Diagrama: ${derived}`;
+  const preview = JSON.stringify({ elements: data?.elements || [], appState: data?.appState || {}, files: data?.files || null });
+  return {
+    type: 'excalidraw' as const,
+    group,
+    slug: segments.join('/') || base,
+    title: usedTitle,
+    description: desc,
+    preview,
+    url: `/notas/${segments.length ? segments.join('/') : base}`,
+    date: 0,
+  };
+});
+
+const all = [...mdxItems, ...excalFromJson, ...excalFromRaw]
+  .filter(i => i.group.toLowerCase() === groupParam)
+  .sort((a,b) => b.date - a.date);
+---
+
+<Layout title={`Notas | ${groupParam}`} description={`Notas del grupo ${groupParam}`}>
+  <SectionContainer class="mt-16">
+    <p class="text-sm uppercase tracking-widest text-gray-600 dark:text-gray-400">Notas /</p>
+    <h1 class="mt-1 text-3xl md:text-4xl font-semibold capitalize text-gray-900 dark:text-gray-100">{groupParam.replace(/-/g,' ')}</h1>
+    <ul class="mt-6 space-y-1">
+      {all.map((item) => (
+        <li data-type={item.type}>
+          <a href={item.url} class="flex items-center gap-4 rounded-lg px-3 py-3 hover:bg-black/5 dark:hover:bg-white/5 transition">
+            {item.type === 'excalidraw' && (item as any).preview ? (
+              <div class="w-20 sm:w-32 shrink-0 rounded-md overflow-hidden bg-gray-50 dark:bg-white/5" style={`view-transition-name: note-${String(item.slug).toLowerCase().replace(/[^a-z0-9_-]/g,'-')}`}>
+                <ExcalPreview client:only="react" data={(item as any).preview} height={72} />
+              </div>
+            ) : (
+              <div class="flex w-12 h-12 shrink-0 items-center justify-center rounded-md bg-gray-100 dark:bg-white/5 text-xs uppercase text-gray-600 dark:text-gray-300">
+                {item.type}
+              </div>
+            )}
+            <div class="min-w-0">
+              <h3 class="text-base text-sky-600 dark:text-sky-400 hover:underline capitalize truncate">
+                {item.title}
+                <span class="ml-2 align-middle text-[10px] rounded-full px-2 py-0.5 border border-gray-300 dark:border-gray-700 opacity-80">{item.type}</span>
+              </h3>
+              {item.description && (<p class="text-sm text-gray-700 dark:text-gray-300 mt-1 line-clamp-2">{item.description}</p>)}
+            </div>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </SectionContainer>
+</Layout>
+
+
