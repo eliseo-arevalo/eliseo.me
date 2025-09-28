@@ -12,7 +12,7 @@ interface ExcalidrawArticleData {
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  // Helper local para evitar problemas de ámbito
+  // Utilidades
   const parseName = (fileName: string) => {
     const base = fileName.replace(/\.(md|mdx|excalidraw|json)$/i,'');
     const m = base.split(/\s*-\s*|_/);
@@ -20,38 +20,47 @@ export const getStaticPaths: GetStaticPaths = async () => {
     const tema = (m.slice(1).join('-') || '').trim();
     return { grupo, tema };
   };
-  const makeSlug = (grupo: string, tema: string) => [grupo, tema].filter(Boolean).join('/');
 
-  // MDX en colección notas
+  // MDX en colección notas: usar el slug completo (incluye carpeta si existe)
   const posts = await getCollection('notas');
-  const mdxPaths = posts.map(post => {
-    const parts = post.slug.split('/');
-    const name = parts[parts.length - 1];
-    const { grupo, tema } = parseName(name);
-    const slug = makeSlug(grupo, tema);
-    return { params: { slug }, props: { kind: 'mdx' as const, post } };
-  });
+  const mdxPaths = posts.map(post => ({ params: { slug: post.slug }, props: { kind: 'mdx' as const, post } }));
 
   // Excalidraw/JSON en /src/content/notas/**
   const jsonModules = import.meta.glob('/src/content/notas/**/*.json', { eager: true }) as Record<string, { default: ExcalidrawArticleData } | ExcalidrawArticleData>;
   const excalModules = import.meta.glob('/src/content/notas/**/*.excalidraw', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>;
 
-  function fileNameFromPath(path: string){
-    return path.split('/').pop() || path;
+  function relFrom(path: string){
+    return path.replace(/.*\/src\/content\/notas\//,'');
+  }
+  function fileBase(path: string){
+    const f = path.split('/').pop() || path;
+    return f.replace(/\.(json|excalidraw)$/i,'');
   }
 
   const excalPaths: { params: { slug: string }; props: { kind: 'excal'; articleData: ExcalidrawArticleData } }[] = [];
 
   for (const [filePath, mod] of Object.entries(jsonModules)) {
-    const { grupo, tema } = parseName(fileNameFromPath(filePath));
-    const slug = makeSlug(grupo, tema);
+    const rel = relFrom(filePath);
+    const segs = rel.split('/');
+    const base = fileBase(rel);
+    const fromName = parseName(base);
+    const groupFolder = segs.length > 1 ? segs[0] : '';
+    const grupo = groupFolder || fromName.grupo;
+    const tema = fromName.tema || base;
+    const slug = [grupo, tema].filter(Boolean).join('/');
     const articleData = (mod as any).default ?? mod;
     excalPaths.push({ params: { slug }, props: { kind: 'excal', articleData } });
   }
 
   for (const [filePath, raw] of Object.entries(excalModules)) {
-    const { grupo, tema } = parseName(fileNameFromPath(filePath));
-    const slug = makeSlug(grupo, tema);
+    const rel = relFrom(filePath);
+    const segs = rel.split('/');
+    const base = fileBase(rel);
+    const fromName = parseName(base);
+    const groupFolder = segs.length > 1 ? segs[0] : '';
+    const grupo = groupFolder || fromName.grupo;
+    const tema = fromName.tema || base;
+    const slug = [grupo, tema].filter(Boolean).join('/');
     const articleData = JSON.parse(raw) as ExcalidrawArticleData;
     excalPaths.push({ params: { slug }, props: { kind: 'excal', articleData } });
   }

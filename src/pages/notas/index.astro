@@ -4,10 +4,9 @@ import SectionContainer from '../../components/SectionContainer.astro';
 import { getCollection } from 'astro:content';
 import ExcalPreview from '../../components/ExcalPreview.tsx';
 
-function parseName(base: string){
-    // admite: "grupo_tema", "grupo - tema", "grupo-tema", o solo "tema"
-    const name = base.replace(/\s+/g, '-');
-    const m = name.split(/\s*-\s*|_/);
+// Parse sin normalizar (para URLs reales que acepta [...slug].astro)
+function parseNameRaw(base: string){
+    const m = base.split(/\s*-\s*|_/);
     const grupo = (m[0] || '').trim();
     const tema = (m.slice(1).join('-') || '').trim();
     return { grupo, tema };
@@ -23,22 +22,39 @@ function titleFromElements(data: any, fallback: string){
 	return fallback;
 }
 
+function formatDate(ts: number){
+    if (!ts || Number(ts) <= 0) return '';
+    try{
+        const d = new Date(ts);
+        return d.toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: '2-digit' });
+    }catch{ return ''; }
+}
+
 // handler ligero para marcar el preview clicado con un nombre de transición compartido
 
-// MDX desde colección 'notas'
+// MDX desde colección 'notas' (carpeta como grupo si existe)
 const notes = await getCollection('notas');
 const mdxItems = notes.map(p => {
-	const parts = p.slug.split('/');
+	const slugPath = p.slug; // ya es relativo a la colección sin extensión
+	const parts = slugPath.split('/');
 	const name = parts[parts.length - 1];
-	const { grupo, tema } = parseName(name);
-	const group = (grupo || 'general');
-	const segments = [grupo, tema].filter(Boolean);
-	const url = `/notas/${segments.length ? segments.join('/') : name}`;
+	let group = 'general';
+	let temaFrom = name;
+	let segments: string[] = [];
+	if (parts.length > 1) {
+		group = parts[0];
+		segments = parts; // /notas/<grupo>/<...>
+	} else {
+		const { grupo, tema } = parseNameRaw(name);
+		group = grupo || 'general';
+		segments = [grupo, tema].filter(Boolean) as string[];
+	}
+	const url = `/notas/${segments.join('/') || name}`;
 	return {
 		type: 'mdx' as const,
 		group,
 		slug: segments.join('/') || name,
-		title: p.data.title || (tema || name),
+		title: p.data.title || (segments.length > 1 ? parts.slice(1).join('-') : (temaFrom)),
 		description: p.data.description || '',
 		url,
 		date: p.data.pubDate?.valueOf?.() ?? 0,
@@ -55,11 +71,15 @@ function fileBase(path: string){
 }
 
 const excalFromJson = Object.entries(jsonModules).map(([filePath, mod]) => {
-	const base = fileBase(filePath);
-	const { grupo, tema } = parseName(base);
-	const group = (grupo || 'general');
-	const segments = [grupo, tema].filter(Boolean);
-	const derived = (tema || base).replace(/-/g, ' ');
+	const rel = filePath.replace(/.*\/src\/content\/notas\//,'');
+	const segs = rel.split('/');
+	const fileBaseName = fileBase(segs[segs.length - 1]);
+	const fromName = parseNameRaw(fileBaseName);
+	const groupFolder = segs.length > 1 ? segs[0] : '';
+	const group = groupFolder || fromName.grupo || 'general';
+	const tema = fromName.tema || fileBaseName;
+	const segments = groupFolder ? [group, tema].filter(Boolean) as string[] : [fromName.grupo, tema].filter(Boolean) as string[];
+    const derived = (tema || fileBaseName).replace(/-/g, ' ');
 	const data: any = (mod as any)?.default ?? (mod as any);
 	const usedTitle = titleFromElements(data, derived);
 	const desc = (data && typeof data.description === 'string' && data.description.trim().length)
@@ -69,21 +89,25 @@ const excalFromJson = Object.entries(jsonModules).map(([filePath, mod]) => {
 	return {
 		type: 'excalidraw' as const,
 		group,
-		slug: segments.join('/') || base,
+		slug: segments.join('/') || fileBaseName,
 		title: usedTitle,
 		description: desc,
 		preview,
-		url: `/notas/${segments.length ? segments.join('/') : base}`,
+		url: `/notas/${segments.length ? segments.join('/') : fileBaseName}`,
 		date: 0,
 	};
 });
 
 const excalFromRaw = Object.entries(excalModules).map(([filePath, raw]) => {
-	const base = fileBase(filePath);
-	const { grupo, tema } = parseName(base);
-	const group = (grupo || 'general');
-	const segments = [grupo, tema].filter(Boolean);
-	const derived = (tema || base).replace(/-/g, ' ');
+	const rel = filePath.replace(/.*\/src\/content\/notas\//,'');
+	const segs = rel.split('/');
+	const fileBaseName = fileBase(segs[segs.length - 1]);
+	const fromName = parseNameRaw(fileBaseName);
+	const groupFolder = segs.length > 1 ? segs[0] : '';
+	const group = groupFolder || fromName.grupo || 'general';
+	const tema = fromName.tema || fileBaseName;
+	const segments = groupFolder ? [group, tema].filter(Boolean) as string[] : [fromName.grupo, tema].filter(Boolean) as string[];
+    const derived = (tema || fileBaseName).replace(/-/g, ' ');
 	let data: any = {};
 	try { data = JSON.parse(raw as string); } catch {}
 	const usedTitle = titleFromElements(data, derived);
@@ -94,11 +118,11 @@ const excalFromRaw = Object.entries(excalModules).map(([filePath, raw]) => {
 	return {
 		type: 'excalidraw' as const,
 		group,
-		slug: segments.join('/') || base,
+		slug: segments.join('/') || fileBaseName,
 		title: usedTitle,
 		description: desc,
 		preview,
-		url: `/notas/${segments.length ? segments.join('/') : base}`,
+		url: `/notas/${segments.length ? segments.join('/') : fileBaseName}`,
 		date: 0,
 	};
 });
@@ -112,6 +136,8 @@ const visible = itemsAll;
 
 function canonicalGroup(s: string){
     return String(s || '')
+        .normalize('NFD')
+        .replace(/\p{Diacritic}+/gu, '')
         .toLowerCase()
         .replace(/\s+/g, '-')
         .replace(/_/g, '-')
@@ -155,35 +181,43 @@ const allGroupNames = groups.map(([key, { display }]) => display);
 					<div class="flex items-end gap-3">
 						<h2 class="text-2xl font-semibold capitalize text-gray-900 dark:text-gray-100">{String(entry.display).replace(/-/g,' ')}</h2>
 						<span class="text-xs text-gray-600 dark:text-gray-400">{entry.items.length} notas</span>
-						{entry.items.length > 3 && (
-							<a href={`/notas/grupo/${encodeURIComponent(String(groupKey))}`} class="ml-auto text-xs px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-700 hover:bg-black/5 dark:hover:bg-white/10">
+                        {entry.items.length > 3 && (
+                            <a href={`/notas/grupo/${encodeURIComponent(String(groupKey))}`} class="ml-auto text-xs px-2 py-0.5 rounded-full border border-gray-300 dark:border-gray-700 hover:bg-black/5 dark:hover:bg-white/10">
                                 Ver todas
                             </a>
                         )}
 					</div>
-					<ul class="mt-4 space-y-1">
-						{entry.items.map(({ slug, title, url, type, description, preview }, idx) => (
+					<ul class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+						{entry.items.map(({ slug, title, url, type, description, preview, date }, idx) => (
 						<li data-type={type} data-idx={idx} class={`${idx>=3?'hidden':''}`}>
-								<a href={url} class="flex items-center gap-4 rounded-lg px-3 py-3 hover:bg-black/5 dark:hover:bg-white/5 transition">
-									{/* Preview compacta para excalidraw */}
+                                <a href={url} class="group block rounded-xl overflow-hidden hover:bg-black/5 dark:hover:bg-white/5 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60">
+                                    {/* Media superior (altura pequeña) */}
                     {type === 'excalidraw' && preview ? (
-                                        <div class="w-20 sm:w-32 shrink-0 rounded-md overflow-hidden bg-gray-50 dark:bg-white/5" style={`view-transition-name: note-${String(slug).toLowerCase().replace(/[^a-z0-9_-]/g,'-')}`}>
-                                            <ExcalPreview client:only="react" data={preview} height={72} />
-                                        </div>
-                                    ) : (
-                                        <div class="flex w-12 h-12 shrink-0 items-center justify-center rounded-md bg-gray-100 dark:bg-white/5 text-xs uppercase text-gray-600 dark:text-gray-300">
-											{type}
-										</div>
-									)}
+                        <div class="w-full overflow-hidden bg-gray-50 dark:bg-white/5" style={`view-transition-name: note-${String(slug).toLowerCase().replace(/[^a-z0-9_-]/g,'-')}`}>
+                          <ExcalPreview client:only="react" data={preview} height={96} />
+                        </div>
+                    ) : (
+                        <div class="w-full h-[96px] flex items-center justify-center bg-gray-100 dark:bg-white/5">
+                          <span class="text-[10px] uppercase tracking-wide text-gray-600 dark:text-gray-300">MDX</span>
+                        </div>
+                    )}
 
-									<div class="min-w-0">
-										<h3 class="text-base text-sky-600 dark:text-sky-400 hover:underline capitalize truncate">
-											{title}
-											<span class="ml-2 align-middle text-[10px] rounded-full px-2 py-0.5 border border-gray-300 dark:border-gray-700 opacity-80">{type}</span>
-										</h3>
-										{description && (<p class="text-sm text-gray-700 dark:text-gray-300 mt-1 line-clamp-2">{description}</p>)}
-									</div>
-								</a>
+                                    {/* Contenido vertical */}
+                                    <div class="p-3 sm:p-4">
+                                        <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 group-hover:text-sky-400 transition line-clamp-1">
+                                            {title}
+                                        </h3>
+                                        {description && (
+                                            <p class="mt-1 text-sm text-gray-700 dark:text-gray-300 line-clamp-2">{description}</p>
+                                        )}
+                                        <div class="mt-2 flex items-center gap-2 text-[10px] text-gray-600 dark:text-gray-400">
+                                            {formatDate(date) && (
+                                                <time datetime={new Date(date).toISOString()}>{formatDate(date)}</time>
+                                            )}
+                                            <span class="rounded-full px-2 py-0.5 border border-gray-300 dark:border-gray-700 opacity-80">{type}</span>
+                                        </div>
+                                    </div>
+                                </a>
 							</li>
 						))}
 					</ul>

@@ -35,12 +35,23 @@ export const getStaticPaths: GetStaticPaths = async () => {
     return { grupo, tema };
   }
 
+  function canonicalLocal(s: string){
+    return String(s || '')
+      .normalize('NFD')
+      .replace(/\p{Diacritic}+/gu, '')
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/_/g, '-')
+      .replace(/-+/g, '-')
+      .trim();
+  }
+
   const notes = await getCollection('notas');
   for (const p of notes) {
     const parts = p.slug.split('/');
     const name = parts[parts.length - 1];
     const { grupo } = parseNameLocal(name);
-    groups.add((grupo || 'general').toLowerCase());
+    groups.add(canonicalLocal(grupo || 'general'));
   }
 
   const jsonModules = import.meta.glob('/src/content/notas/**/*.json', { eager: true });
@@ -54,12 +65,12 @@ export const getStaticPaths: GetStaticPaths = async () => {
   for (const filePath of Object.keys(jsonModules)) {
     const base = fileBase(filePath);
     const { grupo } = parseNameLocal(base);
-    groups.add((grupo || 'general').toLowerCase());
+    groups.add(canonicalLocal(grupo || 'general'));
   }
   for (const filePath of Object.keys(excalModules)) {
     const base = fileBase(filePath);
     const { grupo } = parseNameLocal(base);
-    groups.add((grupo || 'general').toLowerCase());
+    groups.add(canonicalLocal(grupo || 'general'));
   }
 
   return Array.from(groups).map(g => ({ params: { group: g } }));
@@ -67,16 +78,25 @@ export const getStaticPaths: GetStaticPaths = async () => {
 
 const notes = await getCollection('notas');
 const mdxItems = notes.map(p => {
-  const parts = p.slug.split('/');
+  const slugPath = p.slug;
+  const parts = slugPath.split('/');
   const name = parts[parts.length - 1];
-  const { grupo, tema } = parseName(name);
-  const segments = [grupo, tema].filter(Boolean);
-  const url = `/notas/${segments.length ? segments.join('/') : name}`;
+  let group = 'general';
+  let segments: string[] = [];
+  if (parts.length > 1) {
+    group = parts[0];
+    segments = parts;
+  } else {
+    const { grupo, tema } = parseName(name);
+    group = grupo || 'general';
+    segments = [grupo, tema].filter(Boolean) as string[];
+  }
+  const url = `/notas/${segments.join('/') || name}`;
   return {
     type: 'mdx' as const,
-    group: (grupo || 'general'),
+    group,
     slug: segments.join('/') || name,
-    title: p.data.title || (tema || name),
+    title: p.data.title || (parts.length > 1 ? parts.slice(1).join('-') : (name)),
     description: p.data.description || '',
     url,
     date: p.data.pubDate?.valueOf?.() ?? 0,
@@ -92,11 +112,15 @@ function fileBase(path: string){
 }
 
 const excalFromJson = Object.entries(jsonModules).map(([filePath, mod]) => {
-  const base = fileBase(filePath);
-  const { grupo, tema } = parseName(base);
-  const group = (grupo || 'general');
-  const segments = [grupo, tema].filter(Boolean);
-  const derived = (tema || base).replace(/-/g, ' ');
+  const rel = filePath.replace(/.*\/src\/content\/notas\//,'');
+  const segs = rel.split('/');
+  const fileBaseName = fileBase(segs[segs.length - 1]);
+  const fromName = parseName(fileBaseName);
+  const groupFolder = segs.length > 1 ? segs[0] : '';
+  const group = groupFolder || fromName.grupo || 'general';
+  const tema = fromName.tema || fileBaseName;
+  const segments = groupFolder ? [group, tema].filter(Boolean) as string[] : [fromName.grupo, tema].filter(Boolean) as string[];
+  const derived = (tema || fileBaseName).replace(/-/g, ' ');
   const data: any = (mod as any)?.default ?? (mod as any);
   const usedTitle = titleFromElements(data, derived);
   const desc = (data && typeof data.description === 'string' && data.description.trim().length)
@@ -106,21 +130,25 @@ const excalFromJson = Object.entries(jsonModules).map(([filePath, mod]) => {
   return {
     type: 'excalidraw' as const,
     group,
-    slug: segments.join('/') || base,
+    slug: segments.join('/') || fileBaseName,
     title: usedTitle,
     description: desc,
     preview,
-    url: `/notas/${segments.length ? segments.join('/') : base}`,
+    url: `/notas/${segments.length ? segments.join('/') : fileBaseName}`,
     date: 0,
   };
 });
 
 const excalFromRaw = Object.entries(excalModules).map(([filePath, raw]) => {
-  const base = fileBase(filePath);
-  const { grupo, tema } = parseName(base);
-  const group = (grupo || 'general');
-  const segments = [grupo, tema].filter(Boolean);
-  const derived = (tema || base).replace(/-/g, ' ');
+  const rel = filePath.replace(/.*\/src\/content\/notas\//,'');
+  const segs = rel.split('/');
+  const fileBaseName = fileBase(segs[segs.length - 1]);
+  const fromName = parseName(fileBaseName);
+  const groupFolder = segs.length > 1 ? segs[0] : '';
+  const group = groupFolder || fromName.grupo || 'general';
+  const tema = fromName.tema || fileBaseName;
+  const segments = groupFolder ? [group, tema].filter(Boolean) as string[] : [fromName.grupo, tema].filter(Boolean) as string[];
+  const derived = (tema || fileBaseName).replace(/-/g, ' ');
   let data: any = {};
   try { data = JSON.parse(raw as string); } catch {}
   const usedTitle = titleFromElements(data, derived);
@@ -131,17 +159,28 @@ const excalFromRaw = Object.entries(excalModules).map(([filePath, raw]) => {
   return {
     type: 'excalidraw' as const,
     group,
-    slug: segments.join('/') || base,
+    slug: segments.join('/') || fileBaseName,
     title: usedTitle,
     description: desc,
     preview,
-    url: `/notas/${segments.length ? segments.join('/') : base}`,
+    url: `/notas/${segments.length ? segments.join('/') : fileBaseName}`,
     date: 0,
   };
 });
 
+function canonicalGroup(s: string){
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}+/gu, '')
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/_/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
+}
+
 const all = [...mdxItems, ...excalFromJson, ...excalFromRaw]
-  .filter(i => i.group.toLowerCase() === groupParam)
+  .filter(i => canonicalGroup(i.group) === canonicalGroup(groupParam))
   .sort((a,b) => b.date - a.date);
 ---
 
